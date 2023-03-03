@@ -1,0 +1,16 @@
+{
+  "domain": "tpms_ble",
+  "name": "TPMS_BLE",
+  "config_flow": true,
+  "documentation": "https://www.home-assistant.io/integrations/tpms",
+  "bluetooth": [
+    {
+      "manufacturer_id": 256
+    }
+  ],
+  "requirements": [],
+  "dependencies": ["bluetooth_adapters"],
+  "codeowners": ["@bkbilly"],
+  "iot_class": "local_push",
+  "version": "0.1"
+}
