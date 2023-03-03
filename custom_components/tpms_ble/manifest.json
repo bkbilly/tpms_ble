@@ -2,7 +2,8 @@
   "domain": "tpms_ble",
   "name": "TPMS_BLE",
   "config_flow": true,
-  "documentation": "https://www.home-assistant.io/integrations/tpms",
+  "documentation": "https://github.com/bkbilly/tpms_ble",
+  "issue_tracker": "https://github.com/bkbilly/tpms_ble/issues",
   "bluetooth": [
     {
       "manufacturer_id": 256
