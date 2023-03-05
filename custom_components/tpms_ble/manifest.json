@@ -1,17 +1,17 @@
 {
   "domain": "tpms_ble",
   "name": "TPMS_BLE",
-  "config_flow": true,
-  "documentation": "https://github.com/bkbilly/tpms_ble",
-  "issue_tracker": "https://github.com/bkbilly/tpms_ble/issues",
   "bluetooth": [
     {
       "manufacturer_id": 256
     }
   ],
-  "requirements": [],
-  "dependencies": ["bluetooth_adapters"],
   "codeowners": ["@bkbilly"],
+  "config_flow": true,
+  "dependencies": ["bluetooth_adapters"],
+  "documentation": "https://github.com/bkbilly/tpms_ble",
   "iot_class": "local_push",
+  "issue_tracker": "https://github.com/bkbilly/tpms_ble/issues",
+  "requirements": [],
   "version": "0.1"
 }
