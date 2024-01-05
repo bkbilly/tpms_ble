@@ -1,0 +1,22 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "Zariadenie je už nakonfigurované",
+            "already_in_progress": "Tok konfigurácie už prebieha",
+            "no_devices_found": "V sieti sa nenašli žiadne zariadenia",
+            "not_supported": "Zariadenie nie je podporované"
+        },
+        "flow_title": "{name}",
+        "step": {
+            "bluetooth_confirm": {
+                "description": "Chcete nastaviť {name}?"
+            },
+            "user": {
+                "data": {
+                    "address": "Zariadenie"
+                },
+                "description": "Vyberte zariadenie, ktoré chcete nastaviť"
+            }
+        }
+    }
+}
