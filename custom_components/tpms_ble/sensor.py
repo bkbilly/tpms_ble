@@ -20,9 +20,9 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.const import (
     SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
-    PRESSURE_BAR,
     PERCENTAGE,
-    TEMP_CELSIUS,
+    UnitOfPressure,
+    UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
@@ -37,13 +37,13 @@ SENSOR_DESCRIPTIONS: dict[str, SensorEntityDescription] = {
         key=TPMSSensor.PRESSURE,
         device_class=SensorDeviceClass.PRESSURE,
         state_class=SensorStateClass.MEASUREMENT,
-        native_unit_of_measurement=PRESSURE_BAR,
+        native_unit_of_measurement=UnitOfPressure.BAR,
     ),
     TPMSSensor.TEMPERATURE: SensorEntityDescription(
         key=TPMSSensor.TEMPERATURE,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
-        native_unit_of_measurement=TEMP_CELSIUS,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
     ),
     TPMSSensor.BATTERY: SensorEntityDescription(
         key=TPMSSensor.BATTERY,
