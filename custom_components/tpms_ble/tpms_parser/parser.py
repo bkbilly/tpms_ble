@@ -1,5 +1,6 @@
 """Parser for TPMS BLE advertisements."""
 from __future__ import annotations
+from datetime import datetime
 
 import logging
 from struct import unpack
@@ -20,13 +21,11 @@ class TPMSSensor(StrEnum):
     TEMPERATURE = "temperature"
     BATTERY = "battery"
     SIGNAL_STRENGTH = "signal_strength"
+    TIMESTAMP = "timestamp"
 
 
 class TPMSBinarySensor(StrEnum):
     ALARM = "alarm"
-
-
-TPMS_MANUFACTURER = 256
 
 
 class TPMSBluetoothDeviceData(BluetoothData):
@@ -38,10 +37,10 @@ class TPMSBluetoothDeviceData(BluetoothData):
         manufacturer_data = service_info.manufacturer_data
         local_name = service_info.name
         address = service_info.address
-        if TPMS_MANUFACTURER not in manufacturer_data:
+        if len(manufacturer_data) == 0:
             return None
 
-        mfr_data = manufacturer_data[TPMS_MANUFACTURER]
+        mfr_data = next(iter(manufacturer_data.values()))
         self.set_device_manufacturer("TPMS")
 
         self._process_mfr_data(address, local_name, mfr_data)
@@ -72,14 +71,31 @@ class TPMSBluetoothDeviceData(BluetoothData):
         self.set_title(name)
 
         self.update_sensor(
-            str(TPMSSensor.PRESSURE), None, pressure, None, "Pressure"
+            key=str(TPMSSensor.PRESSURE),
+            native_unit_of_measurement=None,
+            native_value=pressure,
+            name="Pressure",
         )
         self.update_sensor(
-            str(TPMSSensor.TEMPERATURE), None, temperature, None, "Temperature"
+            key=str(TPMSSensor.TEMPERATURE),
+            native_unit_of_measurement=None,
+            native_value=temperature,
+            name="Temperature",
         )
         self.update_sensor(
-            str(TPMSSensor.BATTERY), None, battery, None, "Battery"
+            key=str(TPMSSensor.BATTERY),
+            native_unit_of_measurement=None,
+            native_value=battery,
+            name="Battery",
         )
         self.update_binary_sensor(
-            str(TPMSBinarySensor.ALARM), bool(alarm), None, "Alarm"
+            key=str(TPMSBinarySensor.ALARM),
+            native_value=bool(alarm),
+            name="Alarm",
+        )
+        self.update_sensor(
+            key=str(TPMSSensor.TIMESTAMP),
+            native_unit_of_measurement=None,
+            native_value=datetime.now().astimezone(),
+            name="Last Update",
         )
