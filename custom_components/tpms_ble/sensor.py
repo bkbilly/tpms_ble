@@ -113,9 +113,7 @@ async def async_setup_entry(
 
 
 class TPMSBluetoothSensorEntity(
-    PassiveBluetoothProcessorEntity[
-        PassiveBluetoothDataProcessor[Optional[Union[str, int]]]
-    ],
+    PassiveBluetoothProcessorEntity,
     SensorEntity,
 ):
     """Representation of a TPMS sensor."""
