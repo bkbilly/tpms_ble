@@ -76,8 +76,8 @@ class TPMSBluetoothDeviceData(BluetoothData):
         data_hex = data.hex()
 
         msg_length = len(data_hex)
-        if msg_length != 5:
-            _LOGGER.error("Can't parse the data because the data length should be 5")
+        if msg_length != 10:
+            _LOGGER.error("Can't parse the data because the data length should be 10")
             return
         voltage = int(comp_hex[2:4], 16) / 10
         temperature = int(data_hex[0:2], 16)
