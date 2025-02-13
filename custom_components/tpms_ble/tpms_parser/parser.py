@@ -66,7 +66,7 @@ class TPMSBluetoothDeviceData(BluetoothData):
         ) = unpack("=iib?", data[6:16])
         pressure = pressure / 100000
         temperature = temperature / 100
-        self._update_sensors(pressure, battery, temperature, alarm)
+        self._update_sensors(address, pressure, battery, temperature, alarm)
 
     def _process_tpms_2(self, address: str, local_name: str, data: bytes, company_id: int) -> None:
         """Parser for TPMS sensors."""
@@ -88,9 +88,9 @@ class TPMSBluetoothDeviceData(BluetoothData):
         max_voltage = 3.3
         battery = ((voltage - min_voltage) / (max_voltage - min_voltage)) * 100
         battery = int(round(max(0, min(100, battery)), 0))
-        self._update_sensors(pressure, battery, temperature, None)
+        self._update_sensors(address, pressure, battery, temperature, None)
 
-    def _update_sensors(pressure, battery, temperature, alarm):
+    def _update_sensors(self, address, pressure, battery, temperature, alarm):
         name = f"TPMS {short_address(address)}"
         self.set_device_type(name)
         self.set_device_name(name)
