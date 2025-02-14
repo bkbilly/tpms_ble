@@ -1,0 +1,22 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "Urządzenie zostało już skonfigurowane",
+            "already_in_progress": "Konfiguracja w toku",
+            "no_devices_found": "Nie znaleziono żadnego urządzenia",
+            "not_supported": "Urządzenie nieobsługiwane"
+        },
+        "flow_title": "{name}",
+        "step": {
+            "bluetooth_confirm": {
+                "description": "Czy chcesz skonfigurować {name}?"
+            },
+            "user": {
+                "data": {
+                    "address": "Urządzenie"
+                },
+                "description": "Wybierz urządzenie które chcesz skonfigurować"
+            }
+        }
+    }
+}

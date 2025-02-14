@@ -81,7 +81,7 @@ class TPMSBluetoothDeviceData(BluetoothData):
             return
         voltage = int(comp_hex[2:4], 16) / 10
         temperature = int(data_hex[0:2], 16)
-        psi_pressure = int(data_hex[2:6], 16) / 10
+        psi_pressure = (int(data_hex[2:6], 16) - 145) / 10
 
         pressure = round(psi_pressure * 0.0689476, 3)
         min_voltage = 2.6
