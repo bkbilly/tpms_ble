@@ -5,7 +5,7 @@
 
 
 # TPMS_BLE
-Integrates Bluetooth LE [Tire Preasure Monitoring System](https://play.google.com/store/apps/details?id=com.chaoyue.tyed) to Home Assistant using passive connection to get infromation from the sensors.
+Integrates Bluetooth LE to Home Assistant using passive connection to get infromation from the sensors.
 
 Exposes the following sensors:
  - Battery
@@ -21,3 +21,19 @@ Easiest install is via [HACS](https://hacs.xyz/):
 `HACS -> Explore & Add Repositories -> TPMS_BLE`
 
 The device will be autodiscovered once the data are received by any bluetooth proxy.
+
+## Supported Devices
+### Type A
+Android App: [TPMSII](https://play.google.com/store/apps/details?id=com.chaoyue.tyed) 
+
+Product Link: [Amazon](https://www.aliexpress.com/item/1005006129840804.html)
+
+<img width="383" alt="type1" src="https://github.com/user-attachments/assets/0bbb5e22-e3b9-4819-bcd5-a883127a9c12" />
+
+### Type B
+Android App: [SYTPMS](https://play.google.com/store/apps/details?id=com.bekubee.sytpms)
+
+Product Link: [Amazon](https://www.aliexpress.com/item/1005006755884183.html)
+
+<img width="375" alt="type2" src="https://github.com/user-attachments/assets/ba551063-548e-49e4-985b-6ea3a79a86f1" />
+
