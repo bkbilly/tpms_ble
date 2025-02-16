@@ -45,15 +45,15 @@ class TPMSBluetoothDeviceData(BluetoothData):
         self.set_device_manufacturer("TPMS")
 
         if "000027a5-0000-1000-8000-00805f9b34fb" in service_info.service_uuids:
-            self._process_tpms_2(address, local_name, mfr_data, company_id)
+            self._process_tpms_b(address, local_name, mfr_data, company_id)
         elif company_id == 256:
-            self._process_tpms_1(address, local_name, mfr_data)
+            self._process_tpms_a(address, local_name, mfr_data)
         else:
             _LOGGER.error("Can't find the correct data type")
 
-    def _process_tpms_1(self, address: str, local_name: str, data: bytes) -> None:
+    def _process_tpms_a(self, address: str, local_name: str, data: bytes) -> None:
         """Parser for TPMS sensors."""
-        _LOGGER.debug("Parsing TPMS sensor: %s", data)
+        _LOGGER.debug("Parsing TPMS TypeA sensor: %s", data)
         msg_length = len(data)
         if msg_length != 16:
             _LOGGER.error("Can't parse the data because the data length should be 16")
@@ -68,9 +68,9 @@ class TPMSBluetoothDeviceData(BluetoothData):
         temperature = temperature / 100
         self._update_sensors(address, pressure, battery, temperature, alarm)
 
-    def _process_tpms_2(self, address: str, local_name: str, data: bytes, company_id: int) -> None:
+    def _process_tpms_b(self, address: str, local_name: str, data: bytes, company_id: int) -> None:
         """Parser for TPMS sensors."""
-        _LOGGER.debug("Parsing TPMS2 sensor: %s", data)
+        _LOGGER.debug("Parsing TPMS TypeB sensor: (%s) %s", company_id, data)
         comp_hex = re.findall("..", hex(company_id)[2:].zfill(4))[::-1]
         comp_hex = "".join(comp_hex)
         data_hex = data.hex()
@@ -81,6 +81,8 @@ class TPMSBluetoothDeviceData(BluetoothData):
             return
         voltage = int(comp_hex[2:4], 16) / 10
         temperature = int(data_hex[0:2], 16)
+        if temperature >= 2 ** 7:
+            temperature -= 2 ** 8
         psi_pressure = (int(data_hex[2:6], 16) - 145) / 10
 
         pressure = round(psi_pressure * 0.0689476, 3)
