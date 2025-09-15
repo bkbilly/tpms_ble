@@ -110,7 +110,7 @@ async def async_setup_entry(
         )
     )
     entry.async_on_unload(
-        coordinator.async_register_processor(processor), SensorEntityDescription
+        coordinator.async_register_processor(processor, SensorEntityDescription)
     )
 
 
