@@ -22,7 +22,6 @@ class TPMSSensor(StrEnum):
     TEMPERATURE = "temperature"
     BATTERY = "battery"
     SIGNAL_STRENGTH = "signal_strength"
-    TIMESTAMP = "timestamp"
 
 
 class TPMSBinarySensor(StrEnum):
@@ -122,9 +121,3 @@ class TPMSBluetoothDeviceData(BluetoothData):
                 native_value=bool(alarm),
                 name="Alarm",
             )
-        self.update_sensor(
-            key=str(TPMSSensor.TIMESTAMP),
-            native_unit_of_measurement=None,
-            native_value=datetime.now().astimezone(),
-            name="Last Update",
-        )

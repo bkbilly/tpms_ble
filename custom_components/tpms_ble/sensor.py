@@ -59,12 +59,6 @@ SENSOR_DESCRIPTIONS: dict[str, SensorEntityDescription] = {
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
     ),
-    TPMSSensor.TIMESTAMP: SensorEntityDescription(
-        key=TPMSSensor.TIMESTAMP,
-        device_class=SensorDeviceClass.TIMESTAMP,
-        entity_category=EntityCategory.DIAGNOSTIC,
-        icon="mdi:clock-time-four-outline",
-    ),
 }
 
 
