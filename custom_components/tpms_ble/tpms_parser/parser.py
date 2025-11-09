@@ -47,6 +47,8 @@ class TPMSBluetoothDeviceData(BluetoothData):
             self._process_tpms_b(address, local_name, mfr_data, company_id)
         elif company_id == 256:
             self._process_tpms_a(address, local_name, mfr_data)
+        elif company_id == 2088:
+            self._process_tpms_c(address, local_name, mfr_data)
         else:
             _LOGGER.error("Can't find the correct data type")
 
@@ -90,6 +92,46 @@ class TPMSBluetoothDeviceData(BluetoothData):
         battery = ((voltage - min_voltage) / (max_voltage - min_voltage)) * 100
         battery = int(round(max(0, min(100, battery)), 0))
         self._update_sensors(address, pressure, battery, temperature, None)
+
+    def _process_tpms_c(self, address: str, local_name: str, data: bytes) -> None:
+        """
+        Parser for Michelin TMS BLE sensors (Type C).
+        """
+        _LOGGER.debug("Parsing TPMS TypeC (Michelin TMS) sensor: %s", data.hex())
+        msg_length = len(data)
+        if msg_length != 14:
+            _LOGGER.error("Can't parse the data because the data length should be 14 bytes for Type C (Michelin TMS). Found %s bytes.", msg_length)
+            return
+
+        # The datagram structure:
+        # Byte 0: Product type (8 bits - 0x01)
+        # Byte 1: Frame Type (8 bits - 0x04)
+        # Byte 2: Temperature (8 bits)
+        # Byte 3: Battery Voltage (8 bits)
+        # Bytes 4-5: Absolute pressure (16 bits, Little Endian)
+        # Bytes 6-8: Partial Mac address (24 bits, Little Endian)
+        # Byte 9: State (8 bits)
+        # Bytes 10-13: Frame Counter (32 bits, Little Endian)
+        # Bytes 14-16: Reserved (3 bytes)
+
+        raw_temp, raw_volt, raw_press_le, _ = unpack("<BBH8s", data[2:14])
+
+        temperature = raw_temp - 60
+        voltage = round((raw_volt / 100) + 1.0, 2)
+        pressure_psi = round(raw_press_le / 1000, 2)
+
+        min_volt = 2.6
+        max_volt = 3.2
+        battery_pct = ((voltage - min_volt) / (max_volt - min_volt)) * 100
+        battery_pct = int(round(max(0, min(100, battery_pct)), 0))
+
+        self._update_sensors(
+            address,
+            pressure_psi,
+            battery_pct,
+            temperature,
+            None
+        )
 
     def _update_sensors(self, address, pressure, battery, temperature, alarm):
         name = f"TPMS {short_address(address)}"
