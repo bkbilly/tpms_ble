@@ -28,12 +28,16 @@ Android App: [TPMSII](https://play.google.com/store/apps/details?id=com.chaoyue.
 
 Product Link: [AliExpress](https://www.aliexpress.com/item/1005006129840804.html)
 
-<img width="383" alt="type1" src="https://github.com/user-attachments/assets/0bbb5e22-e3b9-4819-bcd5-a883127a9c12" />
+<img width="383" alt="typea" src="https://github.com/user-attachments/assets/0bbb5e22-e3b9-4819-bcd5-a883127a9c12" />
 
 ### Type B
 Android App: [SYTPMS](https://play.google.com/store/apps/details?id=com.bekubee.sytpms)
 
 Product Link: [AliExpress](https://www.aliexpress.com/item/1005006755884183.html)
 
-<img width="375" alt="type2" src="https://github.com/user-attachments/assets/ba551063-548e-49e4-985b-6ea3a79a86f1" />
+<img width="375" alt="typeb" src="https://github.com/user-attachments/assets/ba551063-548e-49e4-985b-6ea3a79a86f1" />
 
+### Type C (Michelin TMS)
+Product Description: [Michelin](https://www.michelin.co.uk/auto/advice/tyre-pressure/tpms-tyre-pressure-monitoring-system)
+
+<img width="375" alt="typec" src="https://github.com/user-attachments/assets/7a1d3c6b-78d1-436e-a67f-b65904de13f0" />
