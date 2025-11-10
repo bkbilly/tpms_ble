@@ -50,8 +50,8 @@ class TPMSBluetoothDeviceData(BluetoothData):
             self._process_tpms_a(address, local_name, mfr_data)
         elif company_id == 2088:
             self._process_tpms_c(address, local_name, mfr_data)
-        #else:
-        #    _LOGGER.error("Can't find the correct data type")
+        else:
+            _LOGGER.debug("Can't find the correct data type")
 
     def _process_tpms_a(self, address: str, local_name: str, data: bytes) -> None:
         """Parser for TPMS sensors."""
