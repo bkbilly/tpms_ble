@@ -176,12 +176,14 @@ class TPMSBluetoothDeviceData(BluetoothData):
             native_unit_of_measurement=None,
             native_value=pressure,
             name="Pressure",
+            suggested_display_precision=2,
         )
         self.update_sensor(
             key=str(TPMSSensor.TEMPERATURE),
             native_unit_of_measurement=None,
             native_value=temperature,
             name="Temperature",
+            suggested_display_precision=1,
         )
         self.update_sensor(
             key=str(TPMSSensor.BATTERY),
@@ -201,6 +203,7 @@ class TPMSBluetoothDeviceData(BluetoothData):
                 native_unit_of_measurement=None,
                 native_value=voltage,
                 name="Voltage",
+                suggested_display_precision=2,
             )
 
 def battery_percentage(voltage):
