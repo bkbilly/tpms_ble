@@ -111,7 +111,7 @@ class TPMSBluetoothDeviceData(BluetoothData):
             raw_temp, raw_volt = unpack("BB", data[2:4])
             temperature_celcius = raw_temp - 60
             battery_voltage = round((raw_volt / 100) + 1.0, 2)
-            pressure_bar = 0.0
+            pressure_bar = None
         
         elif frame_type == 0x04:
             if msg_length != 14:
@@ -139,7 +139,7 @@ class TPMSBluetoothDeviceData(BluetoothData):
             raw_temp, raw_volt = unpack("BB", data[2:4])
             temperature_celcius = raw_temp - 60
             battery_voltage = round((raw_volt / 100) + 1.0, 2)
-            pressure_bar = 0.0
+            pressure_bar = None
         
         elif frame_type == 0x0c:
             if msg_length != 17:
@@ -165,45 +165,49 @@ class TPMSBluetoothDeviceData(BluetoothData):
             battery_voltage,
         )
 
-    def _update_sensors(self, address, pressure, battery, temperature, alarm, voltage):
+    def _update_sensors(self, address, pressure, battery_pct, temperature, alarm, voltage):
         name = f"TPMS {short_address(address)}"
         self.set_device_type(name)
         self.set_device_name(name)
         self.set_title(name)
 
-        self.update_sensor(
-            key=str(TPMSSensor.PRESSURE),
-            native_unit_of_measurement=None,
-            native_value=pressure,
-            name="Pressure",
-            suggested_display_precision=2,
-        )
-        self.update_sensor(
-            key=str(TPMSSensor.TEMPERATURE),
-            native_unit_of_measurement=None,
-            native_value=temperature,
-            name="Temperature",
-            suggested_display_precision=1,
-        )
-        self.update_sensor(
-            key=str(TPMSSensor.BATTERY),
-            native_unit_of_measurement=None,
-            native_value=battery,
-            name="Battery",
-        )
+        if pressure is not None:
+            self.update_sensor(
+                key=str(TPMSSensor.PRESSURE),
+                native_unit_of_measurement=None,
+                native_value=pressure,
+                name="Pressure",
+            )
+
+        if temperature is not None:
+            self.update_sensor(
+                key=str(TPMSSensor.TEMPERATURE),
+                native_unit_of_measurement=None,
+                native_value=temperature,
+                name="Temperature",
+            )
+
+        if battery_pct is not None:
+            self.update_sensor(
+                key=str(TPMSSensor.BATTERY),
+                native_unit_of_measurement=None,
+                native_value=battery_pct,
+                name="Battery",
+            )
+
         if alarm is not None:
             self.update_binary_sensor(
                 key=str(TPMSBinarySensor.ALARM),
                 native_value=bool(alarm),
                 name="Alarm",
             )
+
         if voltage is not None:
             self.update_sensor(
                 key=str(TPMSSensor.VOLTAGE),
                 native_unit_of_measurement=None,
                 native_value=voltage,
                 name="Voltage",
-                suggested_display_precision=2,
             )
 
 def battery_percentage(voltage):
