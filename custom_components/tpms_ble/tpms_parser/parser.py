@@ -21,6 +21,7 @@ class TPMSSensor(StrEnum):
     PRESSURE = "pressure"
     TEMPERATURE = "temperature"
     BATTERY = "battery"
+    VOLTAGE = "voltage"
     SIGNAL_STRENGTH = "signal_strength"
 
 
@@ -67,7 +68,7 @@ class TPMSBluetoothDeviceData(BluetoothData):
         ) = unpack("=iib?", data[6:16])
         pressure = pressure / 100000
         temperature = temperature / 100
-        self._update_sensors(address, pressure, battery, temperature, alarm)
+        self._update_sensors(address, pressure, battery, temperature, alarm, None)
 
     def _process_tpms_b(self, address: str, local_name: str, data: bytes, company_id: int) -> None:
         """Parser for TPMS sensors."""
@@ -87,53 +88,53 @@ class TPMSBluetoothDeviceData(BluetoothData):
         psi_pressure = (int(data_hex[2:6], 16) - 145) / 10
 
         pressure = round(psi_pressure * 0.0689476, 3)
-        min_voltage = 2.6
-        max_voltage = 3.3
-        battery = ((voltage - min_voltage) / (max_voltage - min_voltage)) * 100
-        battery = int(round(max(0, min(100, battery)), 0))
-        self._update_sensors(address, pressure, battery, temperature, None)
+        battery = battery_percentage(voltage)
+        self._update_sensors(address, pressure, battery, temperature, None, voltage)
 
     def _process_tpms_c(self, address: str, local_name: str, data: bytes) -> None:
-        """
-        Parser for Michelin TMS BLE sensors (Type C).
-        """
-        _LOGGER.debug("Parsing TPMS TypeC (Michelin TMS) sensor: %s", data.hex())
-        msg_length = len(data)
-        if msg_length != 14:
-            _LOGGER.error("Can't parse the data because the data length should be 14 bytes for Type C (Michelin TMS). Found %s bytes.", msg_length)
+        """Parser for Michelin Tire Pressure Sensor BLE sensors (Type C)."""
+        _LOGGER.debug("Parsing TPMS TypeC (Michelin Tire Pressure Sensor) sensor: %s", data.hex())
+
+        # Validate Product type == 0x01 = Michelin Tire Pressure Sensor
+        product_type = data[0]
+        if product_type != 0x01:
+            _LOGGER.debug("Can't parse the data because the product type should be 0x01 for Michelin Tire Pressure Sensor. Found: %s from sensor: %s", product_type, address)
             return
-
-        # The datagram structure:
-        # Byte 0: Product type (8 bits - 0x01)
-        # Byte 1: Frame Type (8 bits - 0x04)
-        # Byte 2: Temperature (8 bits)
-        # Byte 3: Battery Voltage (8 bits)
-        # Bytes 4-5: Absolute pressure (16 bits, Little Endian)
-        # Bytes 6-8: Partial Mac address (24 bits, Little Endian)
-        # Byte 9: State (8 bits)
-        # Bytes 10-13: Frame Counter (32 bits, Little Endian)
-        # Bytes 14-16: Reserved (3 bytes)
-
-        raw_temp, raw_volt, raw_press_le, _ = unpack("<BBH8s", data[2:14])
-
-        temperature = raw_temp - 60
-        voltage = round((raw_volt / 100) + 1.0, 2)
-        pressure_psi = round(raw_press_le / 1000, 2)
-
-        min_volt = 2.6
-        max_volt = 3.2
-        battery_pct = ((voltage - min_volt) / (max_volt - min_volt)) * 100
-        battery_pct = int(round(max(0, min(100, battery_pct)), 0))
+        
+        frame_type = data[1]
+        msg_length = len(data)
+        if frame_type == 0x04:
+            if msg_length != 14:
+                _LOGGER.error("Can't parse the data because the data length should be 14 bytes for Michelin TMS frame type 0x04. Found %s bytes from sensor: %s", msg_length, address)
+                return
+            # Byte 0: Product type (8 bits - 0x01)
+            # Byte 1: Frame Type (8 bits - 0x04)
+            # Byte 2: Temperature (8 bits)
+            # Byte 3: Battery Voltage (8 bits)
+            # Bytes 4-5: Absolute pressure (16 bits, Little Endian)
+            # Bytes 6-8: Partial Mac address (24 bits, Little Endian)
+            # Byte 9: State (8 bits)
+            # Bytes 10-13: Frame Counter (32 bits, Little Endian)
+            # Bytes 14-16: Reserved (3 bytes)
+            raw_temp, raw_volt, raw_press_le = unpack("<BBH", data[2:6])
+            temperature_celcius = raw_temp - 60
+            battery_voltage = round((raw_volt / 100) + 1.0, 2)
+            pressure_bar = max(0, round(raw_press_le / 1000, 2) - 1)
+            battery_pct = battery_percentage(battery_voltage)
+        else:
+            _LOGGER.info("Unknown Michelin frame type %s from sensor: %s", frame_type, address)
+            return
 
         self._update_sensors(
             address,
-            pressure_psi,
+            pressure_bar,
             battery_pct,
-            temperature,
-            None
+            temperature_celcius,
+            None,
+            battery_voltage,
         )
 
-    def _update_sensors(self, address, pressure, battery, temperature, alarm):
+    def _update_sensors(self, address, pressure, battery, temperature, alarm, voltage):
         name = f"TPMS {short_address(address)}"
         self.set_device_type(name)
         self.set_device_name(name)
@@ -163,3 +164,29 @@ class TPMSBluetoothDeviceData(BluetoothData):
                 native_value=bool(alarm),
                 name="Alarm",
             )
+        if voltage is not None:
+            self.update_sensor(
+                key=str(TPMSSensor.VOLTAGE),
+                native_unit_of_measurement=None,
+                native_value=voltage,
+                name="Voltage",
+            )
+
+def battery_percentage(voltage):
+    discharge_curve = [
+        (3.2, 100),
+        (3.0, 90),
+        (2.8, 30),
+        (2.7, 5)
+    ]
+    if voltage >= discharge_curve[0][0]:
+        return 100
+    if voltage < discharge_curve[-1][0]:
+        return 0
+    for i in range(len(discharge_curve) - 1):
+        V2, P2 = discharge_curve[i]
+        V1, P1 = discharge_curve[i+1]
+        if V1 < voltage <= V2:
+            percentage = P1 + ((voltage - V1) / (V2 - V1)) * (P2 - P1)
+            return int(round(percentage))
+    return 0

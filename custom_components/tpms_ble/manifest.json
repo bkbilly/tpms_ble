@@ -19,5 +19,5 @@
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/bkbilly/tpms_ble/issues",
   "requirements": [],
-  "version": "1.3.2"
+  "version": "1.4.1"
 }

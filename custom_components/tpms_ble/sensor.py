@@ -21,6 +21,7 @@ from homeassistant.components.sensor import (
 from homeassistant.const import (
     SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
     PERCENTAGE,
+    UnitOfElectricPotential,
     UnitOfPressure,
     UnitOfTemperature,
 )
@@ -49,7 +50,15 @@ SENSOR_DESCRIPTIONS: dict[str, SensorEntityDescription] = {
         key=TPMSSensor.BATTERY,
         device_class=SensorDeviceClass.BATTERY,
         state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
         native_unit_of_measurement=PERCENTAGE,
+    ),
+    TPMSSensor.VOLTAGE: SensorEntityDescription(
+        key=TPMSSensor.VOLTAGE,
+        device_class=SensorDeviceClass.VOLTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        native_unit_of_measurement=UnitOfElectricPotential.VOLT,
     ),
     TPMSSensor.SIGNAL_STRENGTH: SensorEntityDescription(
         key=TPMSSensor.SIGNAL_STRENGTH,
