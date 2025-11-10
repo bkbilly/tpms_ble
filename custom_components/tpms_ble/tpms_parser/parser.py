@@ -127,7 +127,7 @@ class TPMSBluetoothDeviceData(BluetoothData):
                 _LOGGER.error("Found %s bytes from sensor: %s", msg_length, address)
                 return
             raw_temp, raw_volt = unpack("BB", data[2:4])
-            raw_press_le = unpack("<H", data[12:14])
+            raw_press_le, = unpack("<H", data[12:14])
             temperature_celcius = raw_temp - 60
             battery_voltage = round((raw_volt / 100) + 1.0, 2)
             pressure_bar = max(0, round(raw_press_le / 1000, 2) - 1)
