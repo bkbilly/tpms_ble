@@ -42,13 +42,15 @@ class TPMSBluetoothDeviceData(BluetoothData):
             return None
 
         company_id, mfr_data = next(iter(manufacturer_data.items()))
-        self.set_device_manufacturer("TPMS")
 
         if "000027a5-0000-1000-8000-00805f9b34fb" in service_info.service_uuids:
+            self.set_device_manufacturer("SYTPMS TypeB")
             self._process_tpms_b(address, local_name, mfr_data, company_id)
         elif company_id == 256:
+            self.set_device_manufacturer("TPMSII TypeA")
             self._process_tpms_a(address, local_name, mfr_data)
         elif company_id == 2088:
+            self.set_device_manufacturer("Michelin")
             self._process_tpms_c(address, local_name, mfr_data)
         else:
             _LOGGER.debug("Can't find the correct data type")
@@ -166,8 +168,8 @@ class TPMSBluetoothDeviceData(BluetoothData):
         )
 
     def _update_sensors(self, address, pressure, battery_pct, temperature, alarm, voltage):
-        name = f"TPMS {address}"
-        self.set_device_type("TPMS")
+        name = f"TPMS {short_address(address)}"
+        self.set_device_type(name)
         self.set_device_name(name)
         self.set_title(name)
 
@@ -212,10 +214,13 @@ class TPMSBluetoothDeviceData(BluetoothData):
 
 def battery_percentage(voltage):
     discharge_curve = [
-        (3.2, 100),
-        (3.0, 90),
-        (2.8, 30),
-        (2.7, 5)
+        (3.3, 100),
+        (3.05, 97),
+        (2.94, 91),
+        (2.9, 75),
+        (2.85, 25),
+        (2.8, 17),
+        (2.6, 0),
     ]
     if voltage >= discharge_curve[0][0]:
         return 100

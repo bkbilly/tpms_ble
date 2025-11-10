@@ -11,6 +11,7 @@ Exposes the following sensors:
  - Battery
  - Pressure
  - Temperature
+ - Voltage
 
 ## Installation
 
