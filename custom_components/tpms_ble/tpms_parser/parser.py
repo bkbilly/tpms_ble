@@ -166,8 +166,8 @@ class TPMSBluetoothDeviceData(BluetoothData):
         )
 
     def _update_sensors(self, address, pressure, battery_pct, temperature, alarm, voltage):
-        name = f"TPMS {short_address(address)}"
-        self.set_device_type(name)
+        name = f"TPMS {address}"
+        self.set_device_type("TPMS")
         self.set_device_name(name)
         self.set_title(name)
 
