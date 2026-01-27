@@ -114,8 +114,8 @@ class TPMSBluetoothDeviceData(BluetoothData):
             temperature_celcius = raw_temp - 60
             battery_voltage = round((raw_volt / 100) + 1.0, 2)
             pressure_bar = None
-        
-        elif frame_type == 0x04:
+            
+        elif frame_type in [0x03, 0x04]:
             if msg_length != 14:
                 _LOGGER.error("Found %s bytes from sensor: %s", msg_length, address)
                 return
