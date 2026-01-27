@@ -115,16 +115,7 @@ class TPMSBluetoothDeviceData(BluetoothData):
             battery_voltage = round((raw_volt / 100) + 1.0, 2)
             pressure_bar = None
             
-        elif frame_type == 0x03:
-            if msg_length != 14:
-                _LOGGER.error("Found %s bytes from sensor: %s", msg_length, address)
-                return
-            raw_temp, raw_volt, raw_press_le = unpack("<BBH", data[2:6])
-            temperature_celcius = raw_temp - 60
-            battery_voltage = round((raw_volt / 100) + 1.0, 2)
-            pressure_bar = max(0, round(raw_press_le / 1000, 2) - 1)
-            
-        elif frame_type == 0x04:
+        elif frame_type in [0x03, 0x04]:
             if msg_length != 14:
                 _LOGGER.error("Found %s bytes from sensor: %s", msg_length, address)
                 return
