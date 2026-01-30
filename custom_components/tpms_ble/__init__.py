@@ -25,7 +25,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     address = entry.unique_id
     assert address is not None
     data = TPMSBluetoothDeviceData()
-    coordinator = hass.data.setdefault(DOMAIN, {})[
+    hass.data.setdefault(DOMAIN, {})
+    # Store device data for sensor platform to access
+    hass.data[DOMAIN][f"{entry.entry_id}_data"] = data
+    coordinator = hass.data[DOMAIN][
         entry.entry_id
     ] = PassiveBluetoothProcessorCoordinator(
         hass,
@@ -45,5 +48,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         hass.data[DOMAIN].pop(entry.entry_id)
+        hass.data[DOMAIN].pop(f"{entry.entry_id}_data", None)
 
     return unload_ok

@@ -12,6 +12,7 @@ Exposes the following sensors:
  - Pressure
  - Temperature
  - Voltage
+ - Data Age (minutes since last BLE update)
 
 ## Installation
 
