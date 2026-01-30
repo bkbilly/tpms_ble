@@ -1,9 +1,10 @@
 """Support for TPMS sensors."""
 from __future__ import annotations
 
-from typing import Optional, Union
+from datetime import datetime, timedelta, timezone
+from typing import Callable, Optional, Union
 
-from .tpms_parser import TPMSSensor, SensorUpdate
+from .tpms_parser import TPMSSensor, SensorUpdate, TPMSBluetoothDeviceData
 
 from homeassistant import config_entries
 from homeassistant.components.bluetooth.passive_update_processor import (
@@ -24,10 +25,14 @@ from homeassistant.const import (
     UnitOfElectricPotential,
     UnitOfPressure,
     UnitOfTemperature,
+    UnitOfTime,
 )
+from homeassistant.helpers.device_registry import CONNECTION_BLUETOOTH
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.sensor import sensor_device_info_to_hass_device_info
 
 from .const import DOMAIN
@@ -68,6 +73,14 @@ SENSOR_DESCRIPTIONS: dict[str, SensorEntityDescription] = {
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
     ),
+    TPMSSensor.DATA_AGE: SensorEntityDescription(
+        key=TPMSSensor.DATA_AGE,
+        device_class=SensorDeviceClass.DURATION,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        native_unit_of_measurement=UnitOfTime.MINUTES,
+        icon="mdi:clock-outline",
+    ),
 }
 
 
@@ -106,10 +119,37 @@ async def async_setup_entry(
     coordinator: PassiveBluetoothProcessorCoordinator = hass.data[DOMAIN][
         entry.entry_id
     ]
+    device_data: TPMSBluetoothDeviceData = hass.data[DOMAIN][f"{entry.entry_id}_data"]
+
     processor = PassiveBluetoothDataProcessor(sensor_update_to_bluetooth_data_update)
+
+    # Track whether data age sensor has been created
+    data_age_sensor_created = False
+
+    def _async_add_entities_with_data_age(entities: list) -> None:
+        """Add entities and create data age sensor on first update."""
+        nonlocal data_age_sensor_created
+        # Add the regular TPMS entities
+        async_add_entities(entities)
+        # Create data age sensor once we have device info
+        if not data_age_sensor_created and processor.devices:
+            data_age_sensor_created = True
+            # Get base device info and add Bluetooth connection for device matching
+            base_info = next(iter(processor.devices.values()), {})
+            device_info = DeviceInfo(
+                connections={(CONNECTION_BLUETOOTH, coordinator.address)},
+                manufacturer=base_info.get("manufacturer"),
+                model=base_info.get("model"),
+                name=base_info.get("name"),
+            )
+            data_age_sensor = TPMSDataAgeSensorEntity(
+                hass, coordinator, device_data, device_info
+            )
+            async_add_entities([data_age_sensor])
+
     entry.async_on_unload(
         processor.async_add_entities_listener(
-            TPMSBluetoothSensorEntity, async_add_entities
+            TPMSBluetoothSensorEntity, _async_add_entities_with_data_age
         )
     )
     entry.async_on_unload(
@@ -144,3 +184,68 @@ class TPMSBluetoothSensorEntity(
     def assumed_state(self) -> bool:
         """Return True if the device is no longer broadcasting."""
         return not self.processor.available
+
+
+class TPMSDataAgeSensorEntity(SensorEntity):
+    """Representation of a TPMS data age sensor."""
+
+    _attr_has_entity_name = True
+    _attr_device_class = SensorDeviceClass.DURATION
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = UnitOfTime.MINUTES
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:clock-outline"
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        coordinator: PassiveBluetoothProcessorCoordinator,
+        device_data: TPMSBluetoothDeviceData,
+        device_info: DeviceInfo | None,
+    ) -> None:
+        """Initialize the data age sensor."""
+        self.hass = hass
+        self._coordinator = coordinator
+        self._device_data = device_data
+        self._attr_unique_id = f"{coordinator.address}_data_age"
+        self._attr_name = "Data Age"
+        self._attr_device_info = device_info
+        self._unsub_timer: Callable[[], None] | None = None
+
+    @property
+    def native_value(self) -> int | None:
+        """Return the data age in minutes."""
+        if self._device_data.last_update_time is None:
+            return None
+
+        age_seconds = (
+            datetime.now(timezone.utc) - self._device_data.last_update_time
+        ).total_seconds()
+
+        return int(age_seconds // 60)
+
+    @property
+    def available(self) -> bool:
+        """Return True if we have received at least one update."""
+        return self._device_data.last_update_time is not None
+
+    async def async_added_to_hass(self) -> None:
+        """Register timer when entity is added."""
+        await super().async_added_to_hass()
+
+        async def _async_update_data_age(now: datetime) -> None:
+            """Trigger state update for data age."""
+            self.async_write_ha_state()
+
+        self._unsub_timer = async_track_time_interval(
+            self.hass,
+            _async_update_data_age,
+            timedelta(minutes=1),
+        )
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Clean up timer when entity is removed."""
+        if self._unsub_timer is not None:
+            self._unsub_timer()
+            self._unsub_timer = None
+        await super().async_will_remove_from_hass()

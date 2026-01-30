@@ -1,6 +1,6 @@
 """Parser for TPMS BLE advertisements."""
 from __future__ import annotations
-from datetime import datetime
+from datetime import datetime, timezone
 
 import re
 import logging
@@ -23,6 +23,7 @@ class TPMSSensor(StrEnum):
     BATTERY = "battery"
     VOLTAGE = "voltage"
     SIGNAL_STRENGTH = "signal_strength"
+    DATA_AGE = "data_age"
 
 
 class TPMSBinarySensor(StrEnum):
@@ -31,6 +32,16 @@ class TPMSBinarySensor(StrEnum):
 
 class TPMSBluetoothDeviceData(BluetoothData):
     """Data for TPMS BLE sensors."""
+
+    def __init__(self) -> None:
+        """Initialize the TPMS device data."""
+        super().__init__()
+        self._last_update_time: datetime | None = None
+
+    @property
+    def last_update_time(self) -> datetime | None:
+        """Return the timestamp of the last BLE update."""
+        return self._last_update_time
 
     def _start_update(self, service_info: BluetoothServiceInfo) -> None:
         """Update from BLE advertisement data."""
@@ -168,6 +179,7 @@ class TPMSBluetoothDeviceData(BluetoothData):
         )
 
     def _update_sensors(self, address, pressure, battery_pct, temperature, alarm, voltage):
+        self._last_update_time = datetime.now(timezone.utc)
         name = f"TPMS {short_address(address)}"
         self.set_device_type(name)
         self.set_device_name(name)
