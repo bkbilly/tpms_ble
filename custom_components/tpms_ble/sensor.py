@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Callable, Optional, Union
+from typing import Callable
 
 from .tpms_parser import TPMSSensor, SensorUpdate, TPMSBluetoothDeviceData
 
@@ -27,9 +27,10 @@ from homeassistant.const import (
     UnitOfTemperature,
     UnitOfTime,
 )
-from homeassistant.helpers.device_registry import CONNECTION_BLUETOOTH
+from homeassistant.components.bluetooth.const import DOMAIN as BLUETOOTH_DOMAIN
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.device_registry import CONNECTION_BLUETOOTH, DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_time_interval
@@ -134,16 +135,35 @@ async def async_setup_entry(
         # Create data age sensor once we have device info
         if not data_age_sensor_created and processor.devices:
             data_age_sensor_created = True
-            # Get base device info and add Bluetooth connection for device matching
+
+            # Get base device info from processor for manufacturer/model
             base_info = next(iter(processor.devices.values()), {})
-            device_info = DeviceInfo(
-                connections={(CONNECTION_BLUETOOTH, coordinator.address)},
-                manufacturer=base_info.get("manufacturer"),
-                model=base_info.get("model"),
-                name=base_info.get("name"),
+
+            # Build device_info with identifiers/connections to link to the
+            # same device as the other TPMS sensors
+            device_info: DeviceInfo = {
+                "identifiers": {(BLUETOOTH_DOMAIN, coordinator.address)},
+                "connections": {(CONNECTION_BLUETOOTH, coordinator.address)},
+            }
+            if manufacturer := base_info.get("manufacturer"):
+                device_info["manufacturer"] = manufacturer
+            if model := base_info.get("model"):
+                device_info["model"] = model
+
+            # Get device name from registry - prefer user-customized name
+            dev_reg = dr.async_get(hass)
+            device = dev_reg.async_get_device(
+                identifiers={(BLUETOOTH_DOMAIN, coordinator.address)}
             )
+            if device:
+                entity_device_name = device.name_by_user or device.name
+            else:
+                entity_device_name = base_info.get(
+                    "name", f"TPMS {coordinator.address[-5:].replace(':', '')}"
+                )
+
             data_age_sensor = TPMSDataAgeSensorEntity(
-                hass, coordinator, device_data, device_info
+                hass, coordinator, device_data, device_info, entity_device_name
             )
             async_add_entities([data_age_sensor])
 
@@ -189,7 +209,7 @@ class TPMSBluetoothSensorEntity(
 class TPMSDataAgeSensorEntity(SensorEntity):
     """Representation of a TPMS data age sensor."""
 
-    _attr_has_entity_name = True
+    _attr_has_entity_name = False
     _attr_device_class = SensorDeviceClass.DURATION
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = UnitOfTime.MINUTES
@@ -202,13 +222,14 @@ class TPMSDataAgeSensorEntity(SensorEntity):
         coordinator: PassiveBluetoothProcessorCoordinator,
         device_data: TPMSBluetoothDeviceData,
         device_info: DeviceInfo | None,
+        device_name: str,
     ) -> None:
         """Initialize the data age sensor."""
         self.hass = hass
         self._coordinator = coordinator
         self._device_data = device_data
-        self._attr_unique_id = f"{coordinator.address}_data_age"
-        self._attr_name = "Data Age"
+        self._attr_unique_id = f"{coordinator.address}_data_age_v2"
+        self._attr_name = f"{device_name} Data Age"
         self._attr_device_info = device_info
         self._unsub_timer: Callable[[], None] | None = None
 

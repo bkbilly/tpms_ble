@@ -24,22 +24,6 @@ Easiest install is via [HACS](https://hacs.xyz/):
 
 The device will be autodiscovered once the data are received by any bluetooth proxy.
 
-## Data Age Sensor
-
-The Data Age sensor tracks how many minutes have elapsed since the last BLE advertisement was received from each TPMS sensor. This is useful for monitoring whether your sensors are actively broadcasting.
-
-- **Value of 0**: Data is less than 1 minute old
-- **Update frequency**: The sensor value updates once per minute
-- **Availability**: Shows as unavailable until the first BLE update is received
-
-### Upgrading from Previous Versions
-
-If you are upgrading from a version without the Data Age sensor, the new sensor may initially appear as a separate "Unnamed device" entry. To fix this:
-
-1. Delete the TPMS device from Home Assistant (Settings → Devices & Services → Devices)
-2. The device will be automatically rediscovered with all sensors properly grouped
-3. All previously configured attributes (names, areas, etc.) will be restored from the entity registry
-
 ## Supported Devices
 ### Type A
 Android App: [TPMSII](https://play.google.com/store/apps/details?id=com.chaoyue.tyed) 
