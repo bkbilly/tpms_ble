@@ -63,6 +63,9 @@ class TPMSBluetoothDeviceData(BluetoothData):
         elif company_id == 2088:
             self.set_device_manufacturer("Michelin")
             self._process_tpms_c(address, local_name, mfr_data)
+        elif company_id == 172:
+            self.set_device_manufacturer("WODHMIEY TypeD")
+            self._process_tpms_d(address, local_name, mfr_data)
         else:
             _LOGGER.debug("Can't find the correct data type")
 
@@ -176,6 +179,36 @@ class TPMSBluetoothDeviceData(BluetoothData):
             temperature_celcius,
             None,
             battery_voltage,
+        )
+
+    def _process_tpms_d(self, address: str, local_name: str, data: bytes) -> None:
+        """Parser for WODHMIEY / ITPMS (K) TPMS BLE sensors (Type D)."""
+        _LOGGER.debug("Parsing TPMS TypeD data: %s", data.hex())
+
+        msg_length = len(data)
+        if msg_length != 15:
+            _LOGGER.error("Found %s bytes from sensor: %s", msg_length, address)
+            return
+
+        advertised_address = ":".join(f"{byte:02X}" for byte in data[9:15][::-1])
+        if advertised_address.lower() != address.lower():
+            _LOGGER.error(
+                "TypeD manufacturer data address %s does not match sensor address %s",
+                advertised_address,
+                address,
+            )
+            return
+
+        temperature_celcius = data[2] - 55
+        pressure_bar = round(max(0, (data[7] - 2) / 103), 2)
+
+        self._update_sensors(
+            address,
+            pressure_bar,
+            None,
+            temperature_celcius,
+            None,
+            None,
         )
 
     def _update_sensors(self, address, pressure, battery_pct, temperature, alarm, voltage):
