@@ -48,6 +48,6 @@ Product Description: [Michelin](https://www.michelin.co.uk/auto/advice/tyre-pres
 
 Android App: [ITPMS (K)](https://play.google.com/store/apps/details?id=com.zl.dev.tire.itpms)
 
-Product Link: [WODHMIEY](https://www.amazon.nl/-/en/WODHMIEY-WODHMIEYsjqrl3z1gh-11/dp/B0GWH88YSV?th=1)
+Product Link: [WODHMIEY](https://www.amazon.de/-/en/WODHMIEY-Monitoring-Motorcycle-Temperature-Motorhome/dp/B0GWH88YSV)
 
 <img width="375" alt="typed" src="https://github.com/user-attachments/assets/042d33fd-085b-4bff-99f7-eba231c5ce6d" />
