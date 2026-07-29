@@ -52,20 +52,23 @@ class TPMSBluetoothDeviceData(BluetoothData):
         if len(manufacturer_data) == 0:
             return None
 
-        company_id, mfr_data = next(iter(manufacturer_data.items()))
-
-        if "000027a5-0000-1000-8000-00805f9b34fb" in service_info.service_uuids:
-            self.set_device_manufacturer("SYTPMS TypeB")
-            self._process_tpms_b(address, local_name, mfr_data, company_id)
-        elif company_id == 256:
-            self.set_device_manufacturer("TPMSII TypeA")
-            self._process_tpms_a(address, local_name, mfr_data)
-        elif company_id == 2088:
-            self.set_device_manufacturer("Michelin")
-            self._process_tpms_c(address, local_name, mfr_data)
-        elif company_id == 172:
-            self.set_device_manufacturer("WODHMIEY TypeD")
-            self._process_tpms_d(address, local_name, mfr_data)
+        for company_id, mfr_data in reversed(manufacturer_data.items()):
+            if "000027a5-0000-1000-8000-00805f9b34fb" in service_info.service_uuids:
+                self.set_device_manufacturer("SYTPMS TypeB")
+                self._process_tpms_b(address, local_name, mfr_data, company_id)
+                break
+            elif company_id == 256:
+                self.set_device_manufacturer("TPMSII TypeA")
+                self._process_tpms_a(address, local_name, mfr_data)
+                break
+            elif company_id == 2088:
+                self.set_device_manufacturer("Michelin")
+                self._process_tpms_c(address, local_name, mfr_data)
+                break
+            elif company_id == 172:
+                self.set_device_manufacturer("WODHMIEY TypeD")
+                self._process_tpms_d(address, local_name, mfr_data)
+                break
         else:
             _LOGGER.debug("Can't find the correct data type")
 
