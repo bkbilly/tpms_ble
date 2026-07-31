@@ -62,7 +62,7 @@ class TPMSBluetoothDeviceData(BluetoothData):
                 self._process_tpms_a(address, local_name, mfr_data)
                 break
             elif company_id == 2088:
-                self.set_device_manufacturer("Michelin")
+                self.set_device_manufacturer("Michelin TypeC")
                 self._process_tpms_c(address, local_name, mfr_data)
                 break
             elif company_id == 172:
@@ -189,29 +189,45 @@ class TPMSBluetoothDeviceData(BluetoothData):
         _LOGGER.debug("Parsing TPMS TypeD data: %s", data.hex())
 
         msg_length = len(data)
-        if msg_length != 15:
-            _LOGGER.error("Found %s bytes from sensor: %s", msg_length, address)
+        if msg_length < 7:
+            _LOGGER.error("Found %s bytes from sensor: %s (expected >= 7)", msg_length, address)
             return
 
-        advertised_address = ":".join(f"{byte:02X}" for byte in data[9:15][::-1])
-        if advertised_address.lower() != address.lower():
-            _LOGGER.error(
-                "TypeD manufacturer data address %s does not match sensor address %s",
-                advertised_address,
-                address,
-            )
-            return
+        if msg_length == 15:
+            advertised_address = ":".join(f"{byte:02X}" for byte in data[9:15][::-1])
+            if advertised_address.lower() != address.lower():
+                _LOGGER.warning(
+                    "TypeD manufacturer address %s does not match sensor %s, parsing payload anyway",
+                    advertised_address,
+                    address,
+                )
+
+        battery_voltage = round(data[0] * 0.01 + 1.22, 2)
+        battery_pct = battery_percentage(battery_voltage)
 
         temperature_celcius = data[2] - 55
-        pressure_bar = round(max(0, (data[7] - 2) / 103), 2)
+
+        # Alarm State (0 = Normal, 1 = Leakage, 2 = Inflation, etc.)
+        alarm = bool(data[3]) if msg_length > 3 else None
+
+        # Pressure calculation
+        # ITPMS APK formula: raw_press * 3.144 / 100.0 (where data[6] is pressure high flag)
+        if msg_length >= 7 and data[6] in (0, 1):
+            raw_press = data[1] + (256 if data[6] == 1 else 0)
+            pressure_bar = round(raw_press * 0.03144, 2)
+        elif msg_length >= 8:
+            # Fallback formula for legacy 15-byte TypeD packets (where data[7] holds raw pressure)
+            pressure_bar = round(max(0, (data[7] - 2) / 103), 2)
+        else:
+            pressure_bar = None
 
         self._update_sensors(
             address,
             pressure_bar,
-            None,
+            battery_pct,
             temperature_celcius,
-            None,
-            None,
+            alarm,
+            battery_voltage,
         )
 
     def _update_sensors(self, address, pressure, battery_pct, temperature, alarm, voltage):
