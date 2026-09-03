@@ -69,6 +69,10 @@ class TPMSBluetoothDeviceData(BluetoothData):
                 self.set_device_manufacturer("WODHMIEY TypeD")
                 self._process_tpms_d(address, local_name, mfr_data)
                 break
+            elif company_id == 295:
+                self.set_device_manufacturer("Salutica FOBO TypeE")
+                self._process_tpms_e(address, local_name, mfr_data)
+                break
         else:
             _LOGGER.debug("Can't find the correct data type")
 
@@ -227,6 +231,40 @@ class TPMSBluetoothDeviceData(BluetoothData):
             battery_pct,
             temperature_celcius,
             alarm,
+            battery_voltage,
+        )
+
+    def _process_tpms_e(self, address: str, local_name: str, data: bytes) -> None:
+        """Parser for Salutica FOBO TPMS BLE sensors (Type E)."""
+        _LOGGER.debug("Parsing TPMS TypeE (FOBO) data: %s", data.hex())
+
+        msg_length = len(data)
+        if msg_length < 4:
+            _LOGGER.error("Found %s bytes from FOBO sensor: %s (expected >= 4)", msg_length, address)
+            return
+
+        # FOBO sensor payload format:
+        # byte 0: status/type
+        # byte 1: temperature + 50
+        # bytes 2-3 (big-endian 16-bit):
+        #   bits 0-9: pressure in kPa
+        #   bits 10-15: battery code (* 100 mV)
+        #   bit 15: rotating flag
+        pdata = data[-4:]
+        temperature_celcius = pdata[1] - 50
+        raw_val = (pdata[2] << 8) | pdata[3]
+        pressure_kpa = raw_val & 1023
+        pressure_bar = round(pressure_kpa * 0.01, 2)
+        battery_mv = ((raw_val >> 10) & 63) * 100
+        battery_voltage = round(battery_mv / 1000.0, 2)
+        battery_pct = battery_percentage(battery_voltage)
+
+        self._update_sensors(
+            address,
+            pressure_bar,
+            battery_pct,
+            temperature_celcius,
+            None,
             battery_voltage,
         )
 

@@ -51,3 +51,12 @@ Android Apps: [ITPMS (K)](https://play.google.com/store/apps/details?id=com.zl.d
 Product Link: [WODHMIEY](https://www.amazon.de/-/en/WODHMIEY-Monitoring-Motorcycle-Temperature-Motorhome/dp/B0GWH88YSV)
 
 <img width="375" alt="typed" src="https://github.com/user-attachments/assets/042d33fd-085b-4bff-99f7-eba231c5ce6d" />
+
+### Type E (Salutica FOBO TPMS)
+
+Android Apps: [FOBO TPMS](https://play.google.com/store/apps/details?id=my.com.salutica.fobotpms)
+
+Product Description: [FOBO](https://my-fobo.com/)
+
+<img width="375" src="https://github.com/user-attachments/assets/2795117e-633c-4e42-b7a2-a45823d64576" />
+
