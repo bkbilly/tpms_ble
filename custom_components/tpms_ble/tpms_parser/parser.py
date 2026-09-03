@@ -203,7 +203,7 @@ class TPMSBluetoothDeviceData(BluetoothData):
                 )
 
         battery_voltage = round(data[0] * 0.01 + 1.22, 2)
-        battery_pct = battery_percentage(battery_voltage)
+        battery_pct = max(0, min(100, int((battery_voltage - 1.8) / 1.2 * 100)))
 
         temperature_celcius = data[2] - 55
 

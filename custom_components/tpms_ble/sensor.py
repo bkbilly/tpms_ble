@@ -45,12 +45,14 @@ SENSOR_DESCRIPTIONS: dict[str, SensorEntityDescription] = {
         device_class=SensorDeviceClass.PRESSURE,
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfPressure.BAR,
+        suggested_display_precision=2,
     ),
     TPMSSensor.TEMPERATURE: SensorEntityDescription(
         key=TPMSSensor.TEMPERATURE,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        suggested_display_precision=1,
     ),
     TPMSSensor.BATTERY: SensorEntityDescription(
         key=TPMSSensor.BATTERY,
@@ -65,6 +67,7 @@ SENSOR_DESCRIPTIONS: dict[str, SensorEntityDescription] = {
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
         native_unit_of_measurement=UnitOfElectricPotential.VOLT,
+        suggested_display_precision=2,
     ),
     TPMSSensor.SIGNAL_STRENGTH: SensorEntityDescription(
         key=TPMSSensor.SIGNAL_STRENGTH,
