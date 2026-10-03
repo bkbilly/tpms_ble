@@ -49,6 +49,13 @@ class TPMSBluetoothDeviceData(BluetoothData):
         manufacturer_data = service_info.manufacturer_data
         local_name = service_info.name
         address = service_info.address
+
+        for uuid, s_data in service_info.service_data.items():
+            if "0000012a-0000-1000-8000-00805f9b34fb" in uuid and len(s_data) >= 4:
+                self.set_device_manufacturer("Salutica FOBO TypeE")
+                self._process_tpms_e(address, local_name, s_data, temp_offset=40)
+                return
+
         if len(manufacturer_data) == 0:
             return None
 
@@ -234,7 +241,7 @@ class TPMSBluetoothDeviceData(BluetoothData):
             battery_voltage,
         )
 
-    def _process_tpms_e(self, address: str, local_name: str, data: bytes) -> None:
+    def _process_tpms_e(self, address: str, local_name: str, data: bytes, temp_offset: int = 50) -> None:
         """Parser for Salutica FOBO TPMS BLE sensors (Type E)."""
         _LOGGER.debug("Parsing TPMS TypeE (FOBO) data: %s", data.hex())
 
@@ -245,19 +252,33 @@ class TPMSBluetoothDeviceData(BluetoothData):
 
         # FOBO sensor payload format:
         # byte 0: status/type
-        # byte 1: temperature + 50
+        # byte 1: temperature + offset (default 50, iBeacon 40) (top bit might be a flag)
         # bytes 2-3 (big-endian 16-bit):
         #   bits 0-9: pressure in kPa
         #   bits 10-15: battery code (* 100 mV)
         #   bit 15: rotating flag
         pdata = data[-4:]
-        temperature_celcius = pdata[1] - 50
+        temperature_celcius = (pdata[1] & 0x7F) - temp_offset
         raw_val = (pdata[2] << 8) | pdata[3]
         pressure_kpa = raw_val & 1023
         pressure_bar = round(pressure_kpa * 0.01, 2)
-        battery_mv = ((raw_val >> 10) & 63) * 100
-        battery_voltage = round(battery_mv / 1000.0, 2)
-        battery_pct = battery_percentage(battery_voltage)
+        battery_code = (raw_val >> 10) & 63
+        if battery_code > 0:
+            battery_mv = battery_code * 100
+            battery_voltage = round(battery_mv / 1000.0, 2)
+            battery_pct = battery_percentage(battery_voltage)
+        else:
+            # Fallback for iBeacon variants where battery is BCD in byte 0
+            # For BCD: 0x29 -> 2.9V (mask top bit in case of flags)
+            clean_b0 = pdata[0] & 0x7F
+            high_nibble = clean_b0 >> 4
+            low_nibble = clean_b0 & 0x0F
+            if 0 <= high_nibble <= 9 and 0 <= low_nibble <= 9:
+                battery_voltage = round(high_nibble + low_nibble * 0.1, 2)
+                battery_pct = battery_percentage(battery_voltage)
+            else:
+                battery_voltage = None
+                battery_pct = None
 
         self._update_sensors(
             address,
