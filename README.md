@@ -60,3 +60,10 @@ Product Description: [FOBO](https://my-fobo.com/)
 
 <img width="375" src="https://github.com/user-attachments/assets/2795117e-633c-4e42-b7a2-a45823d64576" />
 
+### Type F (bekubee HRTPMS)
+
+Android Apps: [HRTPMS](https://play.google.com/store/apps/details?id=com.bekubee.hrtpms)
+
+Product Description: [AotuLink](https://aotu-link.com/)
+
+Product Link: [AliExpress](https://www.aliexpress.com/item/1005013168188255.html)
