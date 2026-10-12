@@ -64,6 +64,10 @@ class TPMSBluetoothDeviceData(BluetoothData):
                 self.set_device_manufacturer("SYTPMS TypeB")
                 self._process_tpms_b(address, local_name, mfr_data, company_id)
                 break
+            elif "0000a827-0000-1000-8000-00805f9b34fb" in service_info.service_uuids:
+                self.set_device_manufacturer("HRTPMS TypeF")
+                self._process_tpms_f(address, local_name, mfr_data)
+                break
             elif company_id == 256:
                 self.set_device_manufacturer("TPMSII TypeA")
                 self._process_tpms_a(address, local_name, mfr_data)
@@ -288,6 +292,27 @@ class TPMSBluetoothDeviceData(BluetoothData):
             None,
             battery_voltage,
         )
+
+    def _process_tpms_f(self, address: str, local_name: str, data: bytes) -> None:
+        """Parser for TPMS sensors."""
+        _LOGGER.debug("Parsing HRTPMS TypeF sensor: %s", data.hex())
+        msg_length = len(data)
+        if msg_length != 9:
+            _LOGGER.error("Can't parse the data because the data length should be 9")
+            return
+        (
+            voltage,
+            temperature,
+            pressure
+        ) = unpack(">BBH", data[0:4])
+
+        pressure_kpa = pressure - 100
+        pressure_bar = round(pressure_kpa * 0.01, 2)
+        temperature = temperature - 50
+        voltage = voltage * 0.01 + 1.22
+        battery = battery_percentage(voltage)
+
+        self._update_sensors(address, pressure_bar, battery, temperature, None, voltage)
 
     def _update_sensors(self, address, pressure, battery_pct, temperature, alarm, voltage):
         self._last_update_time = datetime.now(timezone.utc)
