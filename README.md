@@ -70,3 +70,25 @@ Product Link: [AliExpress](https://www.aliexpress.com/item/1005013168188255.html
 
 <img width="375" src="https://github.com/user-attachments/assets/f07f5c66-783f-4132-904d-87bad44f186d" />
 
+### Type G (Ai TPMS AI-8000)
+
+Android App: „Ai TPMS"
+
+Bluetooth name `AI-*`, addresses `12:30:AF:…`. Detection is by name and
+address, **not** by the manufacturer id — the sensor writes its
+measurements INTO it, so the id is part of the data.
+
+Frame (5 bytes: manufacturer id little-endian + payload), worked out from
+captures of four sensors (2026-10-16):
+
+| byte | meaning |
+|---|---|
+| 0 | status bits 0–3 (rotate between messages, meaning unknown) |
+| 1 | battery, voltage × 10 |
+| 2 | temperature °C |
+| 3–4 | pressure, big-endian, 0.1 psi **absolute** — gauge = raw/10 − 14.696 psi |
+
+The captured frames: `0x0092` (no overpressure, ambient air) and `0x01AE`
+(a mounted tyre, 1.951 bar gauge; the car's factory TPMS sensor on the
+same wheel showed 1.944 bar).
+

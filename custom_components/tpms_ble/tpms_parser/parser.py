@@ -60,7 +60,11 @@ class TPMSBluetoothDeviceData(BluetoothData):
             return None
 
         for company_id, mfr_data in reversed(manufacturer_data.items()):
-            if "000027a5-0000-1000-8000-00805f9b34fb" in service_info.service_uuids:
+            if local_name.startswith("AI-") or address.upper().startswith("12:30:AF"):
+                self.set_device_manufacturer("Ai TPMS TypeG")
+                self._process_tpms_g(address, local_name, company_id, mfr_data)
+                break
+            elif "000027a5-0000-1000-8000-00805f9b34fb" in service_info.service_uuids:
                 self.set_device_manufacturer("SYTPMS TypeB")
                 self._process_tpms_b(address, local_name, mfr_data, company_id)
                 break
@@ -313,6 +317,41 @@ class TPMSBluetoothDeviceData(BluetoothData):
         battery = battery_percentage(voltage)
 
         self._update_sensors(address, pressure_bar, battery, temperature, None, voltage)
+
+    def _process_tpms_g(self, address: str, local_name: str, company_id: int, data: bytes) -> None:
+        """Parser for Ai TPMS sensors, app "Ai TPMS" (AI-8000) (Type G).
+
+        The sensor writes its measurements INTO the manufacturer data:
+        the 16-bit company id carries the first two frame bytes
+        (little-endian), the payload bytes the rest — together a
+        5-byte frame:
+
+            byte 0:    status bits 0-3 (rotate between messages, meaning unknown)
+            byte 1:    battery voltage × 10 (0x20 = 3.2 V)
+            byte 2:    temperature °C
+            bytes 3-4: pressure big-endian, 0.1 psi ABSOLUTE
+
+        Detection is therefore NOT by company id but by local name
+        ("AI-*") or address prefix 12:30:AF — decided by the caller.
+        Gauge pressure = raw/10 − 14.696 psi (ambient), converted with
+        0.0689476 bar/psi. Frames captured
+        2026-10-16 — 0x0092 (no overpressure, ambient air) and 0x01AE
+        (a mounted tyre; the car's factory sensor on the same wheel
+        showed 1.944 bar).
+        """
+        _LOGGER.debug("Parsing TPMS TypeG (Ai TPMS) data: id %04x %s", company_id, data.hex())
+        frame = bytes([company_id & 0xFF, (company_id >> 8) & 0xFF]) + bytes(data)
+        if len(frame) != 5:
+            _LOGGER.error("Can't parse the data because the data length should be 5 (2 id bytes + 3 payload bytes)")
+            return
+
+        battery_voltage = frame[1] / 10
+        temperature_celcius = frame[2]
+        psi_absolute = int.from_bytes(frame[3:5], "big") / 10
+        pressure_bar = round(max(0.0, psi_absolute - 14.696) * 0.0689476, 3)
+        battery_pct = battery_percentage(battery_voltage)
+
+        self._update_sensors(address, pressure_bar, battery_pct, temperature_celcius, None, battery_voltage)
 
     def _update_sensors(self, address, pressure, battery_pct, temperature, alarm, voltage):
         self._last_update_time = datetime.now(timezone.utc)
