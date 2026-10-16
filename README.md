@@ -74,6 +74,8 @@ Product Link: [AliExpress](https://www.aliexpress.com/item/1005013168188255.html
 
 Android App: „Ai TPMS"
 
+Product: [AliExpress, BLE TPMS AI-8000](https://www.aliexpress.com/item/1005009771707179.html) (listing may no longer be available; look for "Ai TPMS" BLE sensors, app "Ai TPMS")
+
 <img width="375" alt="typeg" src="images/typeg.jpg" />
 
 Bluetooth name `AI-*`, addresses `12:30:AF:…`. Detection is by name and
