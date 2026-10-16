@@ -74,6 +74,8 @@ Product Link: [AliExpress](https://www.aliexpress.com/item/1005013168188255.html
 
 Android App: „Ai TPMS"
 
+<img width="375" alt="typeg" src="images/typeg.jpg" />
+
 Bluetooth name `AI-*`, addresses `12:30:AF:…`. Detection is by name and
 address, **not** by the manufacturer id — the sensor writes its
 measurements INTO it, so the id is part of the data.
