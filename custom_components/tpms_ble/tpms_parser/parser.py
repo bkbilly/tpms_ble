@@ -37,6 +37,8 @@ class TPMSBluetoothDeviceData(BluetoothData):
         """Initialize the TPMS device data."""
         super().__init__()
         self._last_update_time: datetime | None = None
+        self._last_manufacturer_data: dict[int, bytes] = {}
+        self._last_company_id: int | None = None
 
     @property
     def last_update_time(self) -> datetime | None:
@@ -62,6 +64,7 @@ class TPMSBluetoothDeviceData(BluetoothData):
         for company_id, mfr_data in reversed(manufacturer_data.items()):
             if local_name.startswith("AI-") or address.upper().startswith("12:30:AF"):
                 self.set_device_manufacturer("Ai TPMS TypeG")
+                company_id, mfr_data = self._current_manufacturer_data(service_info)
                 self._process_tpms_g(address, local_name, company_id, mfr_data)
                 break
             elif "000027a5-0000-1000-8000-00805f9b34fb" in service_info.service_uuids:
@@ -70,7 +73,7 @@ class TPMSBluetoothDeviceData(BluetoothData):
                 break
             elif "0000a828-0000-1000-8000-00805f9b34fb" in service_info.service_uuids:
                 self.set_device_manufacturer("TC.TPMS TypeH")
-                company_id, mfr_data = raw_manufacturer_data(service_info) or (company_id, mfr_data)
+                company_id, mfr_data = self._current_manufacturer_data(service_info)
                 self._process_tpms_h(address, local_name, company_id, mfr_data)
                 break
             elif "0000a827-0000-1000-8000-00805f9b34fb" in service_info.service_uuids:
@@ -387,6 +390,33 @@ class TPMSBluetoothDeviceData(BluetoothData):
         battery_pct = battery_percentage(battery_voltage)
 
         self._update_sensors(address, pressure_bar, battery_pct, temperature_celcius, None, battery_voltage)
+
+    def _current_manufacturer_data(self, service_info: BluetoothServiceInfo) -> tuple[int, bytes]:
+        """Return (company id, data) of the advertisement just received.
+
+        For sensors that put readings in the company id (Type G, Type H).
+        HA merges manufacturer data across advertisements, so old readings
+        pile up in the dict as extra company ids. Prefer the raw advertisement,
+        which holds only the current one (ESPHome proxies send it, local
+        adapters don't). Otherwise take the entry that is new or changed since
+        the last update, or the one used last time if nothing changed.
+        """
+        manufacturer_data = service_info.manufacturer_data
+        previous, self._last_manufacturer_data = self._last_manufacturer_data, dict(manufacturer_data)
+
+        current = raw_manufacturer_data(service_info)
+        if current is None:
+            changed = [cid for cid, data in manufacturer_data.items() if previous.get(cid) != data]
+            if changed:
+                company_id = changed[-1]
+            elif self._last_company_id in manufacturer_data:
+                company_id = self._last_company_id
+            else:
+                company_id = next(reversed(manufacturer_data))
+            current = (company_id, manufacturer_data[company_id])
+
+        self._last_company_id = current[0]
+        return current
 
     def _update_sensors(self, address, pressure, battery_pct, temperature, alarm, voltage):
         self._last_update_time = datetime.now(timezone.utc)
