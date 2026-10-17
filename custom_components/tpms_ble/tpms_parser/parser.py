@@ -68,6 +68,11 @@ class TPMSBluetoothDeviceData(BluetoothData):
                 self.set_device_manufacturer("SYTPMS TypeB")
                 self._process_tpms_b(address, local_name, mfr_data, company_id)
                 break
+            elif "0000a828-0000-1000-8000-00805f9b34fb" in service_info.service_uuids:
+                self.set_device_manufacturer("TC.TPMS TypeH")
+                company_id, mfr_data = raw_manufacturer_data(service_info) or (company_id, mfr_data)
+                self._process_tpms_h(address, local_name, company_id, mfr_data)
+                break
             elif "0000a827-0000-1000-8000-00805f9b34fb" in service_info.service_uuids:
                 self.set_device_manufacturer("HRTPMS TypeF")
                 self._process_tpms_f(address, local_name, mfr_data)
@@ -353,6 +358,36 @@ class TPMSBluetoothDeviceData(BluetoothData):
 
         self._update_sensors(address, pressure_bar, battery_pct, temperature_celcius, None, battery_voltage)
 
+    def _process_tpms_h(self, address: str, local_name: str, company_id: int, data: bytes) -> None:
+        """Parser for "TC.TPMS" sensors, service UUID 0xA828 (Type H).
+
+        Same layout as Type G, but the payload carries the sensor's MAC
+        address after the measurements. The 16-bit company id holds the
+        first two frame bytes (little-endian):
+
+            byte 0:    status
+            byte 1:    battery voltage × 10
+            byte 2:    temperature °C
+            bytes 3-4: pressure big-endian, 0.1 psi ABSOLUTE
+            bytes 5-10: sensor MAC address
+
+        Gauge pressure = raw/10 − 14.6 psi. Checked 2026-10-17 against
+        the vendor display: 0x01B3 → 28.9 psi, 0x01C1 → 30.3 psi.
+        """
+        _LOGGER.debug("Parsing TPMS TypeH (TC.TPMS) data: id %04x %s", company_id, data.hex())
+        frame = bytes([company_id & 0xFF, (company_id >> 8) & 0xFF]) + bytes(data)
+        if len(frame) != 11:
+            _LOGGER.error("Can't parse the data because the data length should be 11 (2 id bytes + 9 payload bytes)")
+            return
+
+        battery_voltage = frame[1] / 10
+        temperature_celcius = frame[2]
+        psi_absolute = int.from_bytes(frame[3:5], "big") / 10
+        pressure_bar = round(max(0.0, psi_absolute - 14.6) * 0.0689476, 3)
+        battery_pct = battery_percentage(battery_voltage)
+
+        self._update_sensors(address, pressure_bar, battery_pct, temperature_celcius, None, battery_voltage)
+
     def _update_sensors(self, address, pressure, battery_pct, temperature, alarm, voltage):
         self._last_update_time = datetime.now(timezone.utc)
         name = f"TPMS {short_address(address)}"
@@ -398,6 +433,25 @@ class TPMSBluetoothDeviceData(BluetoothData):
                 native_value=voltage,
                 name="Voltage",
             )
+
+def raw_manufacturer_data(service_info: BluetoothServiceInfo) -> tuple[int, bytes] | None:
+    """Return (company id, data) from the advertisement just received.
+
+    HA merges manufacturer data across advertisements, so sensors that put
+    readings in the company id pile up stale entries in the dict. The raw
+    advertisement (not provided by every adapter) holds only the current one.
+    """
+    raw = getattr(service_info, "raw", None)
+    i = 0
+    while raw and i + 1 < len(raw):
+        length = raw[i]
+        if length == 0:
+            break
+        if raw[i + 1] == 0xFF and length >= 3:
+            return int.from_bytes(raw[i + 2:i + 4], "little"), bytes(raw[i + 4:i + 1 + length])
+        i += 1 + length
+    return None
+
 
 def battery_percentage(voltage):
     discharge_curve = [
