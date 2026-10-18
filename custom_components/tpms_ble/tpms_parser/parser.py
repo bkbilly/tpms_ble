@@ -2,13 +2,10 @@
 from __future__ import annotations
 from datetime import datetime, timezone
 
-import re
 import logging
 from struct import unpack
-from dataclasses import dataclass
-from enum import Enum, auto
 
-from bluetooth_data_tools import short_address
+from bluetooth_data_tools import parse_advertisement_data_bytes, short_address
 from bluetooth_sensor_state_data import BluetoothData
 from home_assistant_bluetooth import BluetoothServiceInfo
 from sensor_state_data.enum import StrEnum
@@ -52,35 +49,43 @@ class TPMSBluetoothDeviceData(BluetoothData):
         local_name = service_info.name
         address = service_info.address
 
+        # Check Service Data for US FOBO (Type E) iBeacon variant
+        # Must be checked before manufacturer_data guard because this variant has empty manufacturer_data
         for uuid, s_data in service_info.service_data.items():
             if "0000012a-0000-1000-8000-00805f9b34fb" in uuid and len(s_data) >= 4:
-                self.set_device_manufacturer("Salutica FOBO TypeE")
+                self.set_device_manufacturer("Salutica US FOBO TypeE")
                 self._process_tpms_e(address, local_name, s_data, temp_offset=40)
                 return
 
         if len(manufacturer_data) == 0:
             return None
 
+        if local_name.startswith("AI-") or address.upper().startswith("12:30:AF"):
+            self.set_device_manufacturer("Ai TPMS TypeG")
+            company_id, mfr_data = self._current_manufacturer_data(service_info)
+            self._process_tpms_g(address, local_name, company_id, mfr_data)
+            return
+
+        if "0000a828-0000-1000-8000-00805f9b34fb" in service_info.service_uuids:
+            self.set_device_manufacturer("TC.TPMS TypeH")
+            company_id, mfr_data = self._current_manufacturer_data(service_info)
+            self._process_tpms_h(address, local_name, company_id, mfr_data)
+            return
+
+        if "000027a5-0000-1000-8000-00805f9b34fb" in service_info.service_uuids:
+            self.set_device_manufacturer("SYTPMS TypeB")
+            company_id, mfr_data = self._current_manufacturer_data(service_info)
+            self._process_tpms_b(address, local_name, mfr_data, company_id)
+            return
+
+        if "0000a827-0000-1000-8000-00805f9b34fb" in service_info.service_uuids:
+            self.set_device_manufacturer("HRTPMS TypeF")
+            company_id, mfr_data = self._current_manufacturer_data(service_info)
+            self._process_tpms_f(address, local_name, mfr_data)
+            return
+
         for company_id, mfr_data in reversed(manufacturer_data.items()):
-            if local_name.startswith("AI-") or address.upper().startswith("12:30:AF"):
-                self.set_device_manufacturer("Ai TPMS TypeG")
-                company_id, mfr_data = self._current_manufacturer_data(service_info)
-                self._process_tpms_g(address, local_name, company_id, mfr_data)
-                break
-            elif "000027a5-0000-1000-8000-00805f9b34fb" in service_info.service_uuids:
-                self.set_device_manufacturer("SYTPMS TypeB")
-                self._process_tpms_b(address, local_name, mfr_data, company_id)
-                break
-            elif "0000a828-0000-1000-8000-00805f9b34fb" in service_info.service_uuids:
-                self.set_device_manufacturer("TC.TPMS TypeH")
-                company_id, mfr_data = self._current_manufacturer_data(service_info)
-                self._process_tpms_h(address, local_name, company_id, mfr_data)
-                break
-            elif "0000a827-0000-1000-8000-00805f9b34fb" in service_info.service_uuids:
-                self.set_device_manufacturer("HRTPMS TypeF")
-                self._process_tpms_f(address, local_name, mfr_data)
-                break
-            elif company_id == 256:
+            if company_id == 256:
                 self.set_device_manufacturer("TPMSII TypeA")
                 self._process_tpms_a(address, local_name, mfr_data)
                 break
@@ -118,20 +123,14 @@ class TPMSBluetoothDeviceData(BluetoothData):
 
     def _process_tpms_b(self, address: str, local_name: str, data: bytes, company_id: int) -> None:
         """Parser for TPMS sensors."""
-        _LOGGER.debug("Parsing TPMS TypeB sensor: (%s) %s", company_id, data)
-        comp_hex = re.findall("..", hex(company_id)[2:].zfill(4))[::-1]
-        comp_hex = "".join(comp_hex)
-        data_hex = data.hex()
-
-        msg_length = len(data_hex)
-        if msg_length != 10:
-            _LOGGER.error("Can't parse the data because the data length should be 10")
+        _LOGGER.debug("Parsing TPMS TypeB sensor: (%s) %s", company_id, data.hex())
+        if len(data) != 5:
+            _LOGGER.error("Can't parse the data because the data length should be 5")
             return
-        voltage = int(comp_hex[2:4], 16) / 10
-        temperature = int(data_hex[0:2], 16)
-        if temperature >= 2 ** 7:
-            temperature -= 2 ** 8
-        psi_pressure = (int(data_hex[2:6], 16) - 145) / 10
+
+        voltage = ((company_id >> 8) & 0xFF) / 10
+        temperature = data[0] if data[0] < 128 else data[0] - 256
+        psi_pressure = (int.from_bytes(data[1:3], "big") - 145) / 10
 
         pressure = round(psi_pressure * 0.0689476, 3)
         battery = battery_percentage(voltage)
@@ -321,7 +320,7 @@ class TPMSBluetoothDeviceData(BluetoothData):
         pressure_kpa = pressure - 100
         pressure_bar = round(pressure_kpa * 0.01, 2)
         temperature = temperature - 50
-        voltage = voltage * 0.01 + 1.22
+        voltage = round(voltage * 0.01 + 1.22, 2)
         battery = battery_percentage(voltage)
 
         self._update_sensors(address, pressure_bar, battery, temperature, None, voltage)
@@ -404,21 +403,33 @@ class TPMSBluetoothDeviceData(BluetoothData):
         manufacturer_data = service_info.manufacturer_data
         previous, self._last_manufacturer_data = self._last_manufacturer_data, dict(manufacturer_data)
 
-        current = raw_manufacturer_data(service_info)
-        if current is None:
-            changed = [cid for cid, data in manufacturer_data.items() if previous.get(cid) != data]
-            if changed:
-                company_id = changed[-1]
-            elif self._last_company_id in manufacturer_data:
-                company_id = self._last_company_id
-            else:
-                company_id = next(reversed(manufacturer_data))
-            current = (company_id, manufacturer_data[company_id])
+        if raw := getattr(service_info, "raw", None):
+            _, _, _, raw_mfr, _ = parse_advertisement_data_bytes(raw)
+            if raw_mfr:
+                company_id, data = next(iter(raw_mfr.items()))
+                self._last_company_id = company_id
+                return company_id, data
 
-        self._last_company_id = current[0]
-        return current
+        changed = [cid for cid, data in manufacturer_data.items() if previous.get(cid) != data]
+        if changed:
+            company_id = changed[-1]
+        elif self._last_company_id in manufacturer_data:
+            company_id = self._last_company_id
+        else:
+            company_id = next(reversed(manufacturer_data))
 
-    def _update_sensors(self, address, pressure, battery_pct, temperature, alarm, voltage):
+        self._last_company_id = company_id
+        return company_id, manufacturer_data[company_id]
+
+    def _update_sensors(
+        self,
+        address: str,
+        pressure: float | None,
+        battery_pct: int | None,
+        temperature: int | float | None,
+        alarm: bool | int | None,
+        voltage: float | None,
+    ) -> None:
         self._last_update_time = datetime.now(timezone.utc)
         name = f"TPMS {short_address(address)}"
         self.set_device_type(name)
@@ -464,26 +475,8 @@ class TPMSBluetoothDeviceData(BluetoothData):
                 name="Voltage",
             )
 
-def raw_manufacturer_data(service_info: BluetoothServiceInfo) -> tuple[int, bytes] | None:
-    """Return (company id, data) from the advertisement just received.
 
-    HA merges manufacturer data across advertisements, so sensors that put
-    readings in the company id pile up stale entries in the dict. The raw
-    advertisement (not provided by every adapter) holds only the current one.
-    """
-    raw = getattr(service_info, "raw", None)
-    i = 0
-    while raw and i + 1 < len(raw):
-        length = raw[i]
-        if length == 0:
-            break
-        if raw[i + 1] == 0xFF and length >= 3:
-            return int.from_bytes(raw[i + 2:i + 4], "little"), bytes(raw[i + 4:i + 1 + length])
-        i += 1 + length
-    return None
-
-
-def battery_percentage(voltage):
+def battery_percentage(voltage: float) -> int:
     discharge_curve = [
         (3.3, 100),
         (3.05, 97),
