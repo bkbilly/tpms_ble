@@ -37,6 +37,8 @@ class TPMSBluetoothDeviceData(BluetoothData):
         """Initialize the TPMS device data."""
         super().__init__()
         self._last_update_time: datetime | None = None
+        self._last_manufacturer_data: dict[int, bytes] = {}
+        self._last_company_id: int | None = None
 
     @property
     def last_update_time(self) -> datetime | None:
@@ -62,11 +64,17 @@ class TPMSBluetoothDeviceData(BluetoothData):
         for company_id, mfr_data in reversed(manufacturer_data.items()):
             if local_name.startswith("AI-") or address.upper().startswith("12:30:AF"):
                 self.set_device_manufacturer("Ai TPMS TypeG")
+                company_id, mfr_data = self._current_manufacturer_data(service_info)
                 self._process_tpms_g(address, local_name, company_id, mfr_data)
                 break
             elif "000027a5-0000-1000-8000-00805f9b34fb" in service_info.service_uuids:
                 self.set_device_manufacturer("SYTPMS TypeB")
                 self._process_tpms_b(address, local_name, mfr_data, company_id)
+                break
+            elif "0000a828-0000-1000-8000-00805f9b34fb" in service_info.service_uuids:
+                self.set_device_manufacturer("TC.TPMS TypeH")
+                company_id, mfr_data = self._current_manufacturer_data(service_info)
+                self._process_tpms_h(address, local_name, company_id, mfr_data)
                 break
             elif "0000a827-0000-1000-8000-00805f9b34fb" in service_info.service_uuids:
                 self.set_device_manufacturer("HRTPMS TypeF")
@@ -353,6 +361,63 @@ class TPMSBluetoothDeviceData(BluetoothData):
 
         self._update_sensors(address, pressure_bar, battery_pct, temperature_celcius, None, battery_voltage)
 
+    def _process_tpms_h(self, address: str, local_name: str, company_id: int, data: bytes) -> None:
+        """Parser for "TC.TPMS" sensors, service UUID 0xA828 (Type H).
+
+        Same layout as Type G, but the payload carries the sensor's MAC
+        address after the measurements. The 16-bit company id holds the
+        first two frame bytes (little-endian):
+
+            byte 0:    status
+            byte 1:    battery voltage × 10
+            byte 2:    temperature °C
+            bytes 3-4: pressure big-endian, 0.1 psi ABSOLUTE
+            bytes 5-10: sensor MAC address
+
+        Gauge pressure = raw/10 − 14.6 psi. Checked 2026-10-17 against
+        the vendor display: 0x01B3 → 28.9 psi, 0x01C1 → 30.3 psi.
+        """
+        _LOGGER.debug("Parsing TPMS TypeH (TC.TPMS) data: id %04x %s", company_id, data.hex())
+        frame = bytes([company_id & 0xFF, (company_id >> 8) & 0xFF]) + bytes(data)
+        if len(frame) != 11:
+            _LOGGER.error("Can't parse the data because the data length should be 11 (2 id bytes + 9 payload bytes)")
+            return
+
+        battery_voltage = frame[1] / 10
+        temperature_celcius = frame[2]
+        psi_absolute = int.from_bytes(frame[3:5], "big") / 10
+        pressure_bar = round(max(0.0, psi_absolute - 14.6) * 0.0689476, 3)
+        battery_pct = battery_percentage(battery_voltage)
+
+        self._update_sensors(address, pressure_bar, battery_pct, temperature_celcius, None, battery_voltage)
+
+    def _current_manufacturer_data(self, service_info: BluetoothServiceInfo) -> tuple[int, bytes]:
+        """Return (company id, data) of the advertisement just received.
+
+        For sensors that put readings in the company id (Type G, Type H).
+        HA merges manufacturer data across advertisements, so old readings
+        pile up in the dict as extra company ids. Prefer the raw advertisement,
+        which holds only the current one (ESPHome proxies send it, local
+        adapters don't). Otherwise take the entry that is new or changed since
+        the last update, or the one used last time if nothing changed.
+        """
+        manufacturer_data = service_info.manufacturer_data
+        previous, self._last_manufacturer_data = self._last_manufacturer_data, dict(manufacturer_data)
+
+        current = raw_manufacturer_data(service_info)
+        if current is None:
+            changed = [cid for cid, data in manufacturer_data.items() if previous.get(cid) != data]
+            if changed:
+                company_id = changed[-1]
+            elif self._last_company_id in manufacturer_data:
+                company_id = self._last_company_id
+            else:
+                company_id = next(reversed(manufacturer_data))
+            current = (company_id, manufacturer_data[company_id])
+
+        self._last_company_id = current[0]
+        return current
+
     def _update_sensors(self, address, pressure, battery_pct, temperature, alarm, voltage):
         self._last_update_time = datetime.now(timezone.utc)
         name = f"TPMS {short_address(address)}"
@@ -398,6 +463,25 @@ class TPMSBluetoothDeviceData(BluetoothData):
                 native_value=voltage,
                 name="Voltage",
             )
+
+def raw_manufacturer_data(service_info: BluetoothServiceInfo) -> tuple[int, bytes] | None:
+    """Return (company id, data) from the advertisement just received.
+
+    HA merges manufacturer data across advertisements, so sensors that put
+    readings in the company id pile up stale entries in the dict. The raw
+    advertisement (not provided by every adapter) holds only the current one.
+    """
+    raw = getattr(service_info, "raw", None)
+    i = 0
+    while raw and i + 1 < len(raw):
+        length = raw[i]
+        if length == 0:
+            break
+        if raw[i + 1] == 0xFF and length >= 3:
+            return int.from_bytes(raw[i + 2:i + 4], "little"), bytes(raw[i + 4:i + 1 + length])
+        i += 1 + length
+    return None
+
 
 def battery_percentage(voltage):
     discharge_curve = [

@@ -84,3 +84,10 @@ Android App: [Ai TPMS](https://play.google.com/store/apps/details?id=com.ai.tpms
 Product Links: [AliExpress, BLE TPMS AI-8000](https://www.aliexpress.com/item/1005009771707179.html), [Amazon (possible)](https://www.amazon.es/-/en/Motorcycle-Pressure-Bluetooth-External-Sensors/dp/B0CFTXR2GL)
 
 <img width="375" src="https://github.com/user-attachments/assets/c6538ee7-bd8e-42a9-97f3-2718d0211431" />
+
+
+### Type H (TC.TPMS)
+
+Valve-cap sensors that advertise as `TC.TPMS` with service UUID `0xA828` (CR1632 battery). Sold with motorcycle CarPlay screens that show tyre pressure.
+
+Product Links: [Amazon, WonVon 7" motorcycle CarPlay screen with TPMS](https://www.amazon.com/dp/B0GWPPHV5G). The same sensors also pair with this [5" motorcycle CarPlay screen](https://www.amazon.com/dp/B0DTHB6D3L).
