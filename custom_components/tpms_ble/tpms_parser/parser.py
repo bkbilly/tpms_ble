@@ -194,7 +194,16 @@ class TPMSBluetoothDeviceData(BluetoothData):
             temperature_celcius = raw_temp - 60
             battery_voltage = round((raw_volt / 100) + 1.0, 2)
             pressure_bar = max(0, round(raw_press_le / 1000, 2) - 1)
-        
+
+        elif frame_type == 0x0F:
+            if msg_length != 17:
+                    _LOGGER.error("Found %s bytes from sensor: %s", msg_length, address)
+                    return
+            (raw_temp, raw_volt, raw_press_le) = unpack("<hBH", data[2:7])
+            temperature_celcius = raw_temp / 10
+            battery_voltage = round((raw_volt / 100) + 1.0, 2)
+            pressure_bar = max(0, round(raw_press_le / 1000, 2) - 1)
+
         else:
             _LOGGER.info("Unknown Michelin frame type %s from sensor: %s", frame_type, address)
             return
