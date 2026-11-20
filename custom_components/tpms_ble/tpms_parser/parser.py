@@ -49,12 +49,17 @@ class TPMSBluetoothDeviceData(BluetoothData):
         local_name = service_info.name
         address = service_info.address
 
-        # Check Service Data for US FOBO (Type E) iBeacon variant
-        # Must be checked before manufacturer_data guard because this variant has empty manufacturer_data
+        # Check Service Data for FOBO (Type E) variants
+        # Must be checked before manufacturer_data guard because these variants have empty manufacturer_data
         for uuid, s_data in service_info.service_data.items():
             if "0000012a-0000-1000-8000-00805f9b34fb" in uuid and len(s_data) >= 4:
                 self.set_device_manufacturer("Salutica US FOBO TypeE")
                 self._process_tpms_e(address, local_name, s_data, temp_offset=40)
+                return
+            if "0000ee00-0000-1000-8000-00805f9b34fb" in uuid and len(s_data) >= 4:
+                self.set_device_manufacturer("Salutica FOBO TypeE")
+                payload = s_data[6:10] if len(s_data) >= 10 else s_data
+                self._process_tpms_e(address, local_name, payload, temp_offset=50)
                 return
 
         if len(manufacturer_data) == 0:

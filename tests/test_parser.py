@@ -198,6 +198,60 @@ def test_type_e_fobo_service_data() -> None:
     assert values[TPMSSensor.BATTERY] == battery_percentage(2.9)
 
 
+def test_type_e_fobo_service_data_ee00_real_captures() -> None:
+    """Type E (Salutica FOBO): 13-byte variant via service_data UUID 0xEE00.
+
+    Real captures from Issue #35 (Ford Focus):
+    - Sensor 1 (00:15:88:05:2E:3A):
+      service_data: 303030664756623f64f2307eb1
+      bytes 6-9: 62 3f 64 f2
+      temp: 0x3f (63) -> 63 - 50 = 13 °C
+      raw_val: 0x64f2 -> pressure 242 kPa = 2.42 bar, battery code 25 = 2.5 V
+    - Sensor 2 (00:15:88:05:2D:A3, flat tire):
+      service_data: 303030664756613c64a1307e76
+      bytes 6-9: 61 3c 64 a1
+      temp: 0x3c (60) -> 60 - 50 = 10 °C
+      raw_val: 0x64a1 -> pressure 161 kPa = 1.61 bar, battery code 25 = 2.5 V
+    """
+    parser = TPMSBluetoothDeviceData()
+
+    # Capture 1
+    info1 = BluetoothServiceInfo(
+        name="00:15:88:05:2E:3A",
+        address="00:15:88:05:2E:3A",
+        rssi=-84,
+        manufacturer_data={},
+        service_data={
+            "0000ee00-0000-1000-8000-00805f9b34fb": bytes.fromhex("303030664756623f64f2307eb1")
+        },
+        service_uuids=["0000ee00-0000-1000-8000-00805f9b34fb"],
+        source="local",
+    )
+    values1 = get_sensor_values(parser, info1)
+    assert values1[TPMSSensor.PRESSURE] == 2.42
+    assert values1[TPMSSensor.TEMPERATURE] == 13
+    assert values1[TPMSSensor.VOLTAGE] == 2.5
+    assert values1[TPMSSensor.BATTERY] == battery_percentage(2.5)
+
+    # Capture 2 (flat tire)
+    info2 = BluetoothServiceInfo(
+        name="00:15:88:05:2D:A3",
+        address="00:15:88:05:2D:A3",
+        rssi=-87,
+        manufacturer_data={},
+        service_data={
+            "0000ee00-0000-1000-8000-00805f9b34fb": bytes.fromhex("303030664756613c64a1307e76")
+        },
+        service_uuids=["0000ee00-0000-1000-8000-00805f9b34fb"],
+        source="local",
+    )
+    values2 = get_sensor_values(parser, info2)
+    assert values2[TPMSSensor.PRESSURE] == 1.61
+    assert values2[TPMSSensor.TEMPERATURE] == 10
+    assert values2[TPMSSensor.VOLTAGE] == 2.5
+    assert values2[TPMSSensor.BATTERY] == battery_percentage(2.5)
+
+
 def test_type_f_hrtpms_real_captures() -> None:
     """Type F (Bekubee HRTPMS): Service UUID 0xA827.
 
